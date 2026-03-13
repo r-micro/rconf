@@ -15,7 +15,7 @@ import (
 var refreshLock sync.Mutex
 var refreshTimer *time.Timer
 
-func InitConfig(configBytes []byte, vpFunc func(viper2 *viper.Viper)) {
+func InitConfig(configBytes []byte, vpFunc func(viper2 *viper.Viper) error) {
 	v := viper.New()
 	v.SetConfigType("yaml")
 
@@ -40,7 +40,9 @@ func InitConfig(configBytes []byte, vpFunc func(viper2 *viper.Viper)) {
 	v.AutomaticEnv()
 	v.SetEnvPrefix("app_")
 
-	vpFunc(v)
+	if err := vpFunc(v); err != nil {
+		panic(err)
+	}
 
 	v.WatchConfig()
 	v.OnConfigChange(func(e fsnotify.Event) {
@@ -52,7 +54,9 @@ func InitConfig(configBytes []byte, vpFunc func(viper2 *viper.Viper)) {
 		}
 		refreshTimer = time.AfterFunc(5*time.Second, func() {
 			slog.Info(fmt.Sprintf("refresh config file changed: %s", e.Name))
-			vpFunc(v)
+			if err := vpFunc(v); err != nil {
+				slog.Error(fmt.Sprintf("refresh config file error: %v", err))
+			}
 		})
 	})
 }
